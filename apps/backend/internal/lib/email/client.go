@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"html/template"
 
-	"github.com/pkg/errors"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
 	"github.com/resend/resend-go/v2"
 	"github.com/rs/zerolog"
-	"github.com/sriniously/go-boilerplate/internal/config"
 )
 
 type Client struct {
@@ -18,22 +17,22 @@ type Client struct {
 
 func NewClient(cfg *config.Config, logger *zerolog.Logger) *Client {
 	return &Client{
-		client: resend.NewClient(cfg.Integration.ResendAPIKey),
+		client: resend.NewClient(cfg.Email.ResendAPIKey),
 		logger: logger,
 	}
 }
 
 func (c *Client) SendEmail(to, subject string, templateName Template, data map[string]string) error {
-	tmplPath := fmt.Sprintf("%s/%s.html", "templates/emails", templateName)
+	tmplPath := fmt.Sprintf("templates/emails/%s.html", templateName)
 
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse email template %s", templateName)
+		return fmt.Errorf("failed to parse email template %s: %w", templateName, err)
 	}
 
 	var body bytes.Buffer
 	if err := tmpl.Execute(&body, data); err != nil {
-		return errors.Wrapf(err, "failed to execute email template %s", templateName)
+		return fmt.Errorf("failed to execute email template %s: %w", templateName, err)
 	}
 
 	params := &resend.SendEmailRequest{

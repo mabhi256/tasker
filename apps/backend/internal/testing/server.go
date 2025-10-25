@@ -3,10 +3,10 @@ package testing
 import (
 	"time"
 
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 	"github.com/rs/zerolog"
-	"github.com/sriniously/go-boilerplate/internal/config"
-	"github.com/sriniously/go-boilerplate/internal/database"
-	"github.com/sriniously/go-boilerplate/internal/server"
 )
 
 // CreateTestServer creates a server instance for testing
@@ -23,11 +23,11 @@ func CreateTestServer(logger *zerolog.Logger, db *TestDB) *server.Server {
 			},
 			NewRelic: config.NewRelicConfig{
 				LicenseKey:                "",    // Empty for tests
-				AppLogForwardingEnabled:   false, // Disabled for tests  
+				AppLogForwardingEnabled:   false, // Disabled for tests
 				DistributedTracingEnabled: false, // Disabled for tests
 				DebugLogging:              false, // Disabled for tests
 			},
-			HealthChecks: config.HealthChecksConfig{
+			HealthCheck: config.HealthCheckConfig{
 				Enabled: false,
 			},
 		}

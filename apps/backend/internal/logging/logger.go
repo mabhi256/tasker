@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"encoding/json"
@@ -7,67 +7,76 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5/tracelog"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
 	"github.com/newrelic/go-agent/v3/integrations/logcontext-v2/zerologWriter"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
-	"github.com/sriniously/go-boilerplate/internal/config"
 )
 
-// LoggerService manages New Relic integration and logger creation
 type LoggerService struct {
 	nrApp *newrelic.Application
 }
 
-// NewLoggerService creates a new logger service with New Relic integration
 func NewLoggerService(cfg *config.ObservabilityConfig) *LoggerService {
 	service := &LoggerService{}
 
 	if cfg.NewRelic.LicenseKey == "" {
-		return service
+		fmt.Println("New Relic license key not provided, skipping initialization")
 	}
 
-	var configOptions []newrelic.ConfigOption
-	configOptions = append(configOptions,
+	configOptions := []newrelic.ConfigOption{
 		newrelic.ConfigAppName(cfg.ServiceName),
 		newrelic.ConfigLicense(cfg.NewRelic.LicenseKey),
 		newrelic.ConfigAppLogForwardingEnabled(cfg.NewRelic.AppLogForwardingEnabled),
 		newrelic.ConfigDistributedTracerEnabled(cfg.NewRelic.DistributedTracingEnabled),
-	)
+	}
 
-	// Add debug logging only if explicitly enabled
 	if cfg.NewRelic.DebugLogging {
 		configOptions = append(configOptions, newrelic.ConfigDebugLogger(os.Stdout))
 	}
 
 	app, err := newrelic.NewApplication(configOptions...)
 	if err != nil {
+		fmt.Printf("Failed to initialize New Relic: %v\n", err)
 		return service
 	}
 
 	service.nrApp = app
+	fmt.Printf("New Relic initialized for app: %s\n", cfg.ServiceName)
 	return service
 }
 
-// Shutdown shuts down New Relic
 func (ls *LoggerService) Shutdown() {
 	if ls.nrApp != nil {
 		ls.nrApp.Shutdown(10 * time.Second)
 	}
 }
 
-// GetApplication returns the New Relic application instance
 func (ls *LoggerService) GetApplication() *newrelic.Application {
 	return ls.nrApp
 }
 
+func NewLogger(level string, isProd bool) zerolog.Logger {
+	env := "dev"
+	if isProd {
+		env = "prod"
+	}
 
-// NewLoggerWithService creates a logger with full config and logger service
+	config := &config.ObservabilityConfig{
+		Logging: config.LoggingConfig{
+			Level: level,
+		},
+		Environment: env,
+	}
+
+	return NewLoggerWithService(config, nil)
+}
+
 func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *LoggerService) zerolog.Logger {
 	var logLevel zerolog.Level
-	level := cfg.GetLogLevel()
-
-	switch level {
+	switch cfg.GetLogLevel() {
 	case "debug":
 		logLevel = zerolog.DebugLevel
 	case "info":
@@ -80,13 +89,10 @@ func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *Logger
 		logLevel = zerolog.InfoLevel
 	}
 
-	// Don't set global level - let each logger have its own level
-	zerolog.TimeFieldFormat = "2006-01-02 15:04:05"
+	zerolog.TimeFieldFormat = "1000-01-01 10:00:00"
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
 	var writer io.Writer
-
-	// Setup base writer
 	var baseWriter io.Writer
 	if cfg.IsProduction() && cfg.Logging.Format == "json" {
 		// In production, write to stdout
@@ -94,23 +100,19 @@ func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *Logger
 
 		// Wrap with New Relic zerologWriter for log forwarding in production
 		if loggerService != nil && loggerService.nrApp != nil {
-			nrWriter := zerologWriter.New(baseWriter, loggerService.nrApp)
-			writer = nrWriter
+			writer = zerologWriter.New(baseWriter, loggerService.nrApp)
 		} else {
 			writer = baseWriter
 		}
 	} else {
-		// Development mode - use console writer
-		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02 15:04:05"}
-		writer = consoleWriter
+		// Dev mode - use console writer
+		writer = zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "1000-01-01 10:00:00"}
 	}
 
 	// Note: New Relic log forwarding is now handled automatically by zerologWriter integration
-
 	logger := zerolog.New(writer).
 		Level(logLevel).
-		With().
-		Timestamp().
+		With().Timestamp().
 		Str("service", cfg.ServiceName).
 		Str("environment", cfg.Environment).
 		Logger()
@@ -129,7 +131,6 @@ func WithTraceContext(logger zerolog.Logger, txn *newrelic.Transaction) zerolog.
 		return logger
 	}
 
-	// Get trace metadata from transaction
 	metadata := txn.GetTraceMetadata()
 
 	return logger.With().
@@ -138,11 +139,10 @@ func WithTraceContext(logger zerolog.Logger, txn *newrelic.Transaction) zerolog.
 		Logger()
 }
 
-// NewPgxLogger creates a database logger
 func NewPgxLogger(level zerolog.Level) zerolog.Logger {
 	writer := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
-		TimeFormat: "2006-01-02 15:04:05",
+		TimeFormat: "1000-01-01 10:00:00",
 		FormatFieldValue: func(i any) string {
 			switch v := i.(type) {
 			case string:
@@ -153,7 +153,7 @@ func NewPgxLogger(level zerolog.Level) zerolog.Logger {
 				}
 				return v
 			case []byte:
-				var obj interface{}
+				var obj any
 				if err := json.Unmarshal(v, &obj); err == nil {
 					pretty, _ := json.MarshalIndent(obj, "", "    ")
 					return "\n" + string(pretty)
@@ -167,24 +167,22 @@ func NewPgxLogger(level zerolog.Level) zerolog.Logger {
 
 	return zerolog.New(writer).
 		Level(level).
-		With().
-		Timestamp().
+		With().Timestamp().
 		Str("component", "database").
 		Logger()
 }
 
-// GetPgxTraceLogLevel converts zerolog level to pgx tracelog level
-func GetPgxTraceLogLevel(level zerolog.Level) int {
+func GetPgxTraceLogLevel(level zerolog.Level) tracelog.LogLevel {
 	switch level {
 	case zerolog.DebugLevel:
-		return 6 // tracelog.LogLevelDebug
+		return tracelog.LogLevelDebug
 	case zerolog.InfoLevel:
-		return 4 // tracelog.LogLevelInfo
+		return tracelog.LogLevelInfo
 	case zerolog.WarnLevel:
-		return 3 // tracelog.LogLevelWarn
+		return tracelog.LogLevelWarn
 	case zerolog.ErrorLevel:
-		return 2 // tracelog.LogLevelError
+		return tracelog.LogLevelError
 	default:
-		return 0 // tracelog.LogLevelNone
+		return tracelog.LogLevelNone
 	}
 }

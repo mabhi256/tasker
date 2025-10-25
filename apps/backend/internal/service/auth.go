@@ -1,9 +1,8 @@
 package service
 
 import (
-	"github.com/sriniously/go-boilerplate/internal/server"
-
 	"github.com/clerk/clerk-sdk-go/v2"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 )
 
 type AuthService struct {

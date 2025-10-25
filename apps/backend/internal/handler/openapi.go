@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/sriniously/go-boilerplate/internal/server"
-
 	"github.com/labstack/echo/v4"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 )
 
 type OpenAPIHandler struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/sriniously/go-boilerplate/internal/errs"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/errs"
 )
 
 type Validatable interface {
@@ -33,7 +33,7 @@ func BindAndValidate(c echo.Context, payload Validatable) error {
 	}
 
 	if msg, fieldErrors := validateStruct(payload); fieldErrors != nil {
-		return errs.NewBadRequestError(msg, true, nil, fieldErrors, nil)
+		return errs.NewUnprocessableError(msg, true, nil, fieldErrors, nil)
 	}
 
 	return nil
@@ -49,9 +49,8 @@ func validateStruct(v Validatable) (string, []errs.FieldError) {
 func extractValidationErrors(err error) (string, []errs.FieldError) {
 	var fieldErrors []errs.FieldError
 	validationErrors, ok := err.(validator.ValidationErrors)
-	if !ok {
-		customValidationErrors := err.(CustomValidationErrors)
-		for _, err := range customValidationErrors {
+	if ok {
+		for _, err := range err.(CustomValidationErrors) {
 			fieldErrors = append(fieldErrors, errs.FieldError{
 				Field: err.Field,
 				Error: err.Message,

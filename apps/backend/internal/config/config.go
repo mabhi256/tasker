@@ -15,9 +15,9 @@ type Config struct {
 	Primary       Primary              `koanf:"primary" validate:"required"`
 	Server        ServerConfig         `koanf:"server" validate:"required"`
 	Database      DatabaseConfig       `koanf:"database" validate:"required"`
-	Auth          AuthConfig           `koanf:"auth" validate:"required"`
 	Redis         RedisConfig          `koanf:"redis" validate:"required"`
-	Integration   IntegrationConfig    `koanf:"integration" validate:"required"`
+	Auth          AuthConfig           `koanf:"auth" validate:"required"`
+	Email         EmailConfig          `koanf:"email" validate:"required"`
 	Observability *ObservabilityConfig `koanf:"observability"`
 }
 
@@ -26,18 +26,18 @@ type Primary struct {
 }
 
 type ServerConfig struct {
-	Port               string   `koanf:"port" validate:"required"`
+	Port               int      `koanf:"port" validate:"required"`
 	ReadTimeout        int      `koanf:"read_timeout" validate:"required"`
 	WriteTimeout       int      `koanf:"write_timeout" validate:"required"`
 	IdleTimeout        int      `koanf:"idle_timeout" validate:"required"`
-	CORSAllowedOrigins []string `koanf:"cors_allowed_origins" validate:"required"`
+	CorsAllowedOrigins []string `koanf:"cors_allowed_origins" validate:"required"`
 }
 
 type DatabaseConfig struct {
 	Host            string `koanf:"host" validate:"required"`
 	Port            int    `koanf:"port" validate:"required"`
 	User            string `koanf:"user" validate:"required"`
-	Password        string `koanf:"password"`
+	Password        string `koanf:"password" validate:"required"`
 	Name            string `koanf:"name" validate:"required"`
 	SSLMode         string `koanf:"ssl_mode" validate:"required"`
 	MaxOpenConns    int    `koanf:"max_open_conns" validate:"required"`
@@ -45,56 +45,63 @@ type DatabaseConfig struct {
 	ConnMaxLifetime int    `koanf:"conn_max_lifetime" validate:"required"`
 	ConnMaxIdleTime int    `koanf:"conn_max_idle_time" validate:"required"`
 }
+
 type RedisConfig struct {
 	Address string `koanf:"address" validate:"required"`
 }
 
-type IntegrationConfig struct {
-	ResendAPIKey string `koanf:"resend_api_key" validate:"required"`
-}
-
+// todo: use keycloak for auth
 type AuthConfig struct {
 	SecretKey string `koanf:"secret_key" validate:"required"`
 }
 
+type EmailConfig struct {
+	ResendAPIKey string `koanf:"resend_api_key" validate:"required"`
+}
+
 func LoadConfig() (*Config, error) {
-	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
+	errLogger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
 
 	k := koanf.New(".")
-
-	err := k.Load(env.Provider("BOILERPLATE_", ".", func(s string) string {
+	provider := env.Provider("BOILERPLATE_", ".", func(s string) string {
 		return strings.ToLower(strings.TrimPrefix(s, "BOILERPLATE_"))
-	}), nil)
+	})
+
+	err := k.Load(provider, nil)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("could not load initial env variables")
+		errLogger.Fatal().Err(err).Msg("could not load initial env variables")
 	}
 
 	mainConfig := &Config{}
-
 	err = k.Unmarshal("", mainConfig)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("could not unmarshal main config")
+		errLogger.Fatal().Err(err).Msg("could not unmarshal main config")
 	}
+
+	// DEBUG: Print loaded config
+	errLogger.Info().
+		Str("db_host", mainConfig.Database.Host).
+		Int("db_port", mainConfig.Database.Port).
+		Str("db_user", mainConfig.Database.User).
+		Str("db_name", mainConfig.Database.Name).
+		Str("db_ssl", mainConfig.Database.SSLMode).
+		Str("redis", mainConfig.Redis.Address).
+		Msg("DEBUG: Loaded config values")
 
 	validate := validator.New()
-
 	err = validate.Struct(mainConfig)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("config validation failed")
+		errLogger.Fatal().Err(err).Msg("could not validate main config")
 	}
 
-	// Set default observability config if not provided
 	if mainConfig.Observability == nil {
 		mainConfig.Observability = DefaultObservabilityConfig()
 	}
-
-	// Override service name and environment from primary config
 	mainConfig.Observability.ServiceName = "boilerplate"
 	mainConfig.Observability.Environment = mainConfig.Primary.Env
 
-	// Validate observability config
 	if err := mainConfig.Observability.Validate(); err != nil {
-		logger.Fatal().Err(err).Msg("invalid observability config")
+		errLogger.Fatal().Err(err).Msg("invalid observability config")
 	}
 
 	return mainConfig, nil

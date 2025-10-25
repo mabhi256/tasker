@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func PrintJSON(v interface{}) {
+func PrintJSON(v any) {
 	json, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		fmt.Println("Error marshalling to JSON:", err)

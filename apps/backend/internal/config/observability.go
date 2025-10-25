@@ -2,15 +2,17 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
+// todo: use lgtm for observability
 type ObservabilityConfig struct {
-	ServiceName  string             `koanf:"service_name" validate:"required"`
-	Environment  string             `koanf:"environment" validate:"required"`
-	Logging      LoggingConfig      `koanf:"logging" validate:"required"`
-	NewRelic     NewRelicConfig     `koanf:"new_relic" validate:"required"`
-	HealthChecks HealthChecksConfig `koanf:"health_checks" validate:"required"`
+	ServiceName string            `koanf:"service_name" validate:"required"`
+	Environment string            `koanf:"environment" validate:"required"`
+	Logging     LoggingConfig     `koanf:"logging" validate:"required"`
+	NewRelic    NewRelicConfig    `koanf:"new_relic" validate:"required"`
+	HealthCheck HealthCheckConfig `koanf:"health_check" validate:"required"`
 }
 
 type LoggingConfig struct {
@@ -26,7 +28,7 @@ type NewRelicConfig struct {
 	DebugLogging              bool   `koanf:"debug_logging"`
 }
 
-type HealthChecksConfig struct {
+type HealthCheckConfig struct {
 	Enabled  bool          `koanf:"enabled"`
 	Interval time.Duration `koanf:"interval" validate:"min=1s"`
 	Timeout  time.Duration `koanf:"timeout" validate:"min=1s"`
@@ -36,7 +38,7 @@ type HealthChecksConfig struct {
 func DefaultObservabilityConfig() *ObservabilityConfig {
 	return &ObservabilityConfig{
 		ServiceName: "boilerplate",
-		Environment: "development",
+		Environment: "dev",
 		Logging: LoggingConfig{
 			Level:              "info",
 			Format:             "json",
@@ -48,7 +50,7 @@ func DefaultObservabilityConfig() *ObservabilityConfig {
 			DistributedTracingEnabled: true,
 			DebugLogging:              false, // Disabled by default to avoid mixed log formats
 		},
-		HealthChecks: HealthChecksConfig{
+		HealthCheck: HealthCheckConfig{
 			Enabled:  true,
 			Interval: 30 * time.Second,
 			Timeout:  5 * time.Second,
@@ -57,41 +59,36 @@ func DefaultObservabilityConfig() *ObservabilityConfig {
 	}
 }
 
-func (c *ObservabilityConfig) Validate() error {
-	if c.ServiceName == "" {
+func (oc *ObservabilityConfig) Validate() error {
+	if oc.ServiceName == "" {
 		return fmt.Errorf("service_name is required")
 	}
 
-	// Validate log level
-	validLevels := map[string]bool{
-		"debug": true, "info": true, "warn": true, "error": true,
-	}
-	if !validLevels[c.Logging.Level] {
-		return fmt.Errorf("invalid logging level: %s (must be one of: debug, info, warn, error)", c.Logging.Level)
+	validLevels := []string{"debug", "info", "warn", "error"}
+	if !slices.Contains(validLevels, oc.Logging.Level) {
+		return fmt.Errorf("invalid logging level: %s (must be one of: debug, info, warn, error)", oc.Logging.Level)
 	}
 
-	// Validate slow query threshold
-	if c.Logging.SlowQueryThreshold < 0 {
+	if oc.Logging.SlowQueryThreshold < 0 {
 		return fmt.Errorf("logging slow_query_threshold must be non-negative")
 	}
 
 	return nil
 }
 
-func (c *ObservabilityConfig) GetLogLevel() string {
-	switch c.Environment {
-	case "production":
-		if c.Logging.Level == "" {
+func (oc *ObservabilityConfig) GetLogLevel() string {
+	if oc.Logging.Level == "" {
+		switch oc.Environment {
+		case "prod":
 			return "info"
-		}
-	case "development":
-		if c.Logging.Level == "" {
+		case "dev":
 			return "debug"
 		}
 	}
-	return c.Logging.Level
+
+	return oc.Logging.Level
 }
 
-func (c *ObservabilityConfig) IsProduction() bool {
-	return c.Environment == "production"
+func (oc *ObservabilityConfig) IsProduction() bool {
+	return oc.Environment == "prod"
 }

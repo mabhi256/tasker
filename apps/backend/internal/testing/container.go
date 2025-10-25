@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
 	"github.com/rs/zerolog"
-	"github.com/sriniously/go-boilerplate/internal/config"
-	"github.com/sriniously/go-boilerplate/internal/database"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -80,13 +80,13 @@ func SetupTestDB(t *testing.T) (*TestDB, func()) {
 			Env: "test",
 		},
 		Server: config.ServerConfig{
-			Port:               "8080",
+			Port:               8080,
 			ReadTimeout:        30,
 			WriteTimeout:       30,
 			IdleTimeout:        30,
-			CORSAllowedOrigins: []string{"*"},
+			CorsAllowedOrigins: []string{"*"},
 		},
-		Integration: config.IntegrationConfig{
+		Email: config.EmailConfig{
 			ResendAPIKey: "test-key",
 		},
 		Redis: config.RedisConfig{
@@ -101,7 +101,7 @@ func SetupTestDB(t *testing.T) (*TestDB, func()) {
 
 	var db *database.Database
 	var lastErr error
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		// Sleep before first attempt too to give PostgreSQL time to initialize
 		time.Sleep(2 * time.Second)
 

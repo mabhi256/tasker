@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/middleware"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/validation"
 	"github.com/newrelic/go-agent/v3/integrations/nrpkgerrors"
 	"github.com/newrelic/go-agent/v3/newrelic"
-	"github.com/sriniously/go-boilerplate/internal/middleware"
-	"github.com/sriniously/go-boilerplate/internal/server"
-	"github.com/sriniously/go-boilerplate/internal/validation"
 )
 
 // Handler provides base functionality for all handlers
@@ -29,9 +29,9 @@ type HandlerFuncNoContent[Req validation.Validatable] func(c echo.Context, req R
 
 // ResponseHandler defines the interface for handling different response types
 type ResponseHandler interface {
-	Handle(c echo.Context, result interface{}) error
+	Handle(c echo.Context, result any) error
 	GetOperation() string
-	AddAttributes(txn *newrelic.Transaction, result interface{})
+	AddAttributes(txn *newrelic.Transaction, result any)
 }
 
 // JSONResponseHandler handles JSON responses
@@ -39,7 +39,7 @@ type JSONResponseHandler struct {
 	status int
 }
 
-func (h JSONResponseHandler) Handle(c echo.Context, result interface{}) error {
+func (h JSONResponseHandler) Handle(c echo.Context, result any) error {
 	return c.JSON(h.status, result)
 }
 
@@ -47,7 +47,7 @@ func (h JSONResponseHandler) GetOperation() string {
 	return "handler"
 }
 
-func (h JSONResponseHandler) AddAttributes(txn *newrelic.Transaction, result interface{}) {
+func (h JSONResponseHandler) AddAttributes(txn *newrelic.Transaction, result any) {
 	// http.status_code is already set by tracing middleware
 }
 
@@ -56,7 +56,7 @@ type NoContentResponseHandler struct {
 	status int
 }
 
-func (h NoContentResponseHandler) Handle(c echo.Context, result interface{}) error {
+func (h NoContentResponseHandler) Handle(c echo.Context, result any) error {
 	return c.NoContent(h.status)
 }
 
@@ -64,7 +64,7 @@ func (h NoContentResponseHandler) GetOperation() string {
 	return "handler_no_content"
 }
 
-func (h NoContentResponseHandler) AddAttributes(txn *newrelic.Transaction, result interface{}) {
+func (h NoContentResponseHandler) AddAttributes(txn *newrelic.Transaction, result any) {
 	// http.status_code is already set by tracing middleware
 }
 
@@ -75,7 +75,7 @@ type FileResponseHandler struct {
 	contentType string
 }
 
-func (h FileResponseHandler) Handle(c echo.Context, result interface{}) error {
+func (h FileResponseHandler) Handle(c echo.Context, result any) error {
 	data := result.([]byte)
 	c.Response().Header().Set("Content-Disposition", "attachment; filename="+h.filename)
 	return c.Blob(h.status, h.contentType, data)
@@ -85,7 +85,7 @@ func (h FileResponseHandler) GetOperation() string {
 	return "handler_file"
 }
 
-func (h FileResponseHandler) AddAttributes(txn *newrelic.Transaction, result interface{}) {
+func (h FileResponseHandler) AddAttributes(txn *newrelic.Transaction, result any) {
 	if txn != nil {
 		// http.status_code is already set by tracing middleware
 		txn.AddAttribute("file.name", h.filename)
@@ -100,7 +100,7 @@ func (h FileResponseHandler) AddAttributes(txn *newrelic.Transaction, result int
 func handleRequest[Req validation.Validatable](
 	c echo.Context,
 	req Req,
-	handler func(c echo.Context, req Req) (interface{}, error),
+	handler func(c echo.Context, req Req) (any, error),
 	responseHandler ResponseHandler,
 ) error {
 	start := time.Now()
@@ -122,14 +122,14 @@ func handleRequest[Req validation.Validatable](
 		Str("method", method).
 		Str("path", path).
 		Str("route", route)
-	
+
 	// Add file-specific fields to logger if it's a file handler
 	if fileHandler, ok := responseHandler.(FileResponseHandler); ok {
 		loggerBuilder = loggerBuilder.
 			Str("filename", fileHandler.filename).
 			Str("content_type", fileHandler.contentType)
 	}
-	
+
 	logger := loggerBuilder.Logger()
 
 	// user.id is already set by tracing middleware
@@ -214,7 +214,7 @@ func Handle[Req validation.Validatable, Res any](
 	req Req,
 ) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return handleRequest(c, req, func(c echo.Context, req Req) (interface{}, error) {
+		return handleRequest(c, req, func(c echo.Context, req Req) (any, error) {
 			return handler(c, req)
 		}, JSONResponseHandler{status: status})
 	}
@@ -229,7 +229,7 @@ func HandleFile[Req validation.Validatable](
 	contentType string,
 ) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return handleRequest(c, req, func(c echo.Context, req Req) (interface{}, error) {
+		return handleRequest(c, req, func(c echo.Context, req Req) (any, error) {
 			return handler(c, req)
 		}, FileResponseHandler{
 			status:      status,
@@ -247,7 +247,7 @@ func HandleNoContent[Req validation.Validatable](
 	req Req,
 ) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return handleRequest(c, req, func(c echo.Context, req Req) (interface{}, error) {
+		return handleRequest(c, req, func(c echo.Context, req Req) (any, error) {
 			err := handler(c, req)
 			return nil, err
 		}, NoContentResponseHandler{status: status})

@@ -19,16 +19,18 @@ func RequestID() echo.MiddlewareFunc {
 			}
 
 			c.Set(RequestIDKey, requestID)
-			c.Response().Header().Set(RequestIDHeader, requestID)
+			c.Response().Header().Set(RequestIDKey, requestID)
 
 			return next(c)
 		}
 	}
 }
 
-func GetRequestID(c echo.Context) string {
-	if requestID, ok := c.Get(RequestIDKey).(string); ok {
-		return requestID
+func GetRequestID(ctx echo.Context) string {
+	reqID := ctx.Get(RequestIDKey)
+
+	if id, ok := reqID.(string); ok {
+		return id
 	}
 	return ""
 }

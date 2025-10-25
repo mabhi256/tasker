@@ -1,6 +1,6 @@
 package repository
 
-import "github.com/sriniously/go-boilerplate/internal/server"
+import "github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 
 type Repositories struct{}
 

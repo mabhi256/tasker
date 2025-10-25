@@ -101,10 +101,10 @@ func MapSeverity(severity string) Severity {
 	}
 }
 
-// Error represents an error reported by the database server.
+// DBError represents an error reported by the database server.
 // It's not guaranteed all errors reported by database functions will be of this type;
 // it is only returned when the database reports an error.
-type Error struct {
+type DBError struct {
 	// Code defines the general class of the error.
 	Code Code
 
@@ -140,10 +140,10 @@ type Error struct {
 	driverErr error
 }
 
-func (pe *Error) Error() string {
+func (pe *DBError) Error() string {
 	return string(pe.Severity) + ": " + pe.Message + " (Code " + string(pe.Code) + ": SQLSTATE " + pe.DatabaseCode + ")"
 }
 
-func (pe *Error) Unwrap() error {
+func (pe *DBError) Unwrap() error {
 	return pe.driverErr
 }

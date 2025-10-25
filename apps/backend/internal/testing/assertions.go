@@ -13,7 +13,7 @@ import (
 )
 
 // AssertTimestampsValid checks that created_at and updated_at fields are set
-func AssertTimestampsValid(t *testing.T, obj interface{}) {
+func AssertTimestampsValid(t *testing.T, obj any) {
 	t.Helper()
 
 	val := reflect.ValueOf(obj)
@@ -49,7 +49,7 @@ func AssertValidUUID(t *testing.T, id uuid.UUID, message ...string) {
 }
 
 // AssertEqualExceptTime asserts that two objects are equal, ignoring time fields
-func AssertEqualExceptTime(t *testing.T, expected, actual interface{}) {
+func AssertEqualExceptTime(t *testing.T, expected, actual any) {
 	t.Helper()
 
 	expectedVal := reflect.ValueOf(expected)

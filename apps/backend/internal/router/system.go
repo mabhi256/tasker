@@ -1,9 +1,8 @@
 package router
 
 import (
-	"github.com/sriniously/go-boilerplate/internal/handler"
-
 	"github.com/labstack/echo/v4"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/handler"
 )
 
 func registerSystemRoutes(r *echo.Echo, h *handler.Handlers) {

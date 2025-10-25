@@ -7,10 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sriniously/go-boilerplate/internal/errs"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/errs"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -18,7 +17,7 @@ import (
 // ErrCode reports the error code for a given error.
 // If the error is nil or is not of type *Error it reports sqlerr.Other.
 func ErrCode(err error) Code {
-	var pgerr *Error
+	var pgerr *DBError
 	if errors.As(err, &pgerr) {
 		return pgerr.Code
 	}
@@ -26,8 +25,8 @@ func ErrCode(err error) Code {
 }
 
 // ConvertPgError converts a pgconn.PgError to our custom Error type
-func ConvertPgError(src *pgconn.PgError) *Error {
-	return &Error{
+func ConvertPgError(src *pgconn.PgError) *DBError {
+	return &DBError{
 		Code:           MapCode(src.Code),
 		Severity:       MapSeverity(src.Severity),
 		DatabaseCode:   src.Code,
@@ -69,7 +68,7 @@ func generateErrorCode(tableName string, errType Code) string {
 }
 
 // formatUserFriendlyMessage generates a user-friendly error message
-func formatUserFriendlyMessage(sqlErr *Error) string {
+func formatUserFriendlyMessage(sqlErr *DBError) string {
 	entityName := getEntityName(sqlErr.TableName, sqlErr.ColumnName)
 
 	switch sqlErr.Code {
@@ -167,14 +166,14 @@ func HandleError(err error) error {
 
 		switch sqlErr.Code {
 		case ForeignKeyViolation:
-			return errs.NewBadRequestError(userMessage, false, &errorCode, nil, nil)
+			return errs.NewUnprocessableError(userMessage, false, &errorCode, nil, nil)
 
 		case UniqueViolation:
 			columnName := extractColumnForUniqueViolation(sqlErr.ConstraintName)
 			if columnName != "" {
 				userMessage = strings.ReplaceAll(userMessage, "identifier", humanizeText(columnName))
 			}
-			return errs.NewBadRequestError(userMessage, true, &errorCode, nil, nil)
+			return errs.NewConflictError(userMessage, true, &errorCode, nil, nil)
 
 		case NotNullViolation:
 			fieldErrors := []errs.FieldError{
@@ -183,10 +182,10 @@ func HandleError(err error) error {
 					Error: "is required",
 				},
 			}
-			return errs.NewBadRequestError(userMessage, true, &errorCode, fieldErrors, nil)
+			return errs.NewUnprocessableError(userMessage, true, &errorCode, fieldErrors, nil)
 
 		case CheckViolation:
-			return errs.NewBadRequestError(userMessage, true, &errorCode, nil, nil)
+			return errs.NewUnprocessableError(userMessage, true, &errorCode, nil, nil)
 
 		default:
 			return errs.NewInternalServerError()

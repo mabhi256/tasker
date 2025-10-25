@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 	"github.com/rs/zerolog"
-	"github.com/sriniously/go-boilerplate/internal/server"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +37,7 @@ func SetupTest(t *testing.T) (*TestDB, *server.Server, func()) {
 }
 
 // MustMarshalJSON marshals an object to JSON or fails the test
-func MustMarshalJSON(t *testing.T, v interface{}) []byte {
+func MustMarshalJSON(t *testing.T, v any) []byte {
 	t.Helper()
 
 	jsonBytes, err := json.Marshal(v)

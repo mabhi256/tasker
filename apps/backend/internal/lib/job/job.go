@@ -2,8 +2,8 @@ package job
 
 import (
 	"github.com/hibiken/asynq"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
 	"github.com/rs/zerolog"
-	"github.com/sriniously/go-boilerplate/internal/config"
 )
 
 type JobService struct {
@@ -12,7 +12,7 @@ type JobService struct {
 	logger *zerolog.Logger
 }
 
-func NewJobService(logger *zerolog.Logger, cfg *config.Config) *JobService {
+func NewJobService(cfg *config.Config, logger *zerolog.Logger) *JobService {
 	redisAddr := cfg.Redis.Address
 
 	client := asynq.NewClient(asynq.RedisClientOpt{
@@ -44,7 +44,8 @@ func (j *JobService) Start() error {
 	mux.HandleFunc(TaskWelcome, j.handleWelcomeEmailTask)
 
 	j.logger.Info().Msg("Starting background job server")
-	if err := j.server.Start(mux); err != nil {
+	err := j.server.Start(mux)
+	if err != nil {
 		return err
 	}
 

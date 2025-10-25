@@ -1,9 +1,9 @@
 package service
 
 import (
-	"github.com/sriniously/go-boilerplate/internal/lib/job"
-	"github.com/sriniously/go-boilerplate/internal/repository"
-	"github.com/sriniously/go-boilerplate/internal/server"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/lib/job"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/repository"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 )
 
 type Services struct {

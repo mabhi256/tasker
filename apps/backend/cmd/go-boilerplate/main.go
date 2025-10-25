@@ -8,14 +8,14 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/sriniously/go-boilerplate/internal/config"
-	"github.com/sriniously/go-boilerplate/internal/database"
-	"github.com/sriniously/go-boilerplate/internal/handler"
-	"github.com/sriniously/go-boilerplate/internal/logger"
-	"github.com/sriniously/go-boilerplate/internal/repository"
-	"github.com/sriniously/go-boilerplate/internal/router"
-	"github.com/sriniously/go-boilerplate/internal/server"
-	"github.com/sriniously/go-boilerplate/internal/service"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/handler"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/logging"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/repository"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/router"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/service"
 )
 
 const DefaultContextTimeout = 30
@@ -27,10 +27,10 @@ func main() {
 	}
 
 	// Initialize New Relic logger service
-	loggerService := logger.NewLoggerService(cfg.Observability)
+	loggerService := logging.NewLoggerService(cfg.Observability)
 	defer loggerService.Shutdown()
 
-	log := logger.NewLoggerWithService(cfg.Observability, loggerService)
+	log := logging.NewLoggerWithService(cfg.Observability, loggerService)
 
 	if cfg.Primary.Env != "local" {
 		if err := database.Migrate(context.Background(), &log, cfg); err != nil {
@@ -56,26 +56,24 @@ func main() {
 	r := router.NewRouter(srv, handlers, services)
 
 	// Setup HTTP server
-	srv.SetupHTTPServer(r)
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-
-	// Start server
+	srv.SetupHttpServer(r)
 	go func() {
 		if err = srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msg("failed to start server")
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
+	// Wait for interrupt signal
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	<-ctx.Done()
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultContextTimeout*time.Second)
 
+	// Create shutdown timeout to gracefully shutdown the server
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultContextTimeout*time.Second)
 	if err = srv.Shutdown(ctx); err != nil {
 		log.Fatal().Err(err).Msg("server forced to shutdown")
 	}
-	stop()
-	cancel()
+	stop()   // Release signal notification resources
+	cancel() // Release timeout context resources
 
 	log.Info().Msg("server exited properly")
 }

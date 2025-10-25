@@ -2,11 +2,10 @@ package middleware
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 	"github.com/newrelic/go-agent/v3/integrations/nrecho-v4"
 	"github.com/newrelic/go-agent/v3/integrations/nrpkgerrors"
 	"github.com/newrelic/go-agent/v3/newrelic"
-
-	"github.com/sriniously/go-boilerplate/internal/server"
 )
 
 type TracingMiddleware struct {
@@ -47,15 +46,13 @@ func (tm *TracingMiddleware) EnhanceTracing() echo.MiddlewareFunc {
 			txn.AddAttribute("http.user_agent", c.Request().UserAgent())
 
 			// Add request ID if available
-			if requestID := GetRequestID(c); requestID != "" {
-				txn.AddAttribute("request.id", requestID)
+			if reqID := GetRequestID(c); reqID != "" {
+				txn.AddAttribute("request.id", reqID)
 			}
 
 			// Add user context if available
-			if userID := c.Get("user_id"); userID != nil {
-				if userIDStr, ok := userID.(string); ok {
-					txn.AddAttribute("user.id", userIDStr)
-				}
+			if userID := GetUserID(c); userID != "" {
+				txn.AddAttribute("user.id", userID)
 			}
 
 			// Execute next handler

@@ -4,16 +4,19 @@ import (
 	"context"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/logging"
+	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/rs/zerolog"
-	"github.com/sriniously/go-boilerplate/internal/logger"
-	"github.com/sriniously/go-boilerplate/internal/server"
 )
 
+// Define custom types for context keys to avoid collisions
+type contextKey string
+
 const (
-	UserIDKey   = "user_id"
-	UserRoleKey = "user_role"
-	LoggerKey   = "logger"
+	UserIDKey   contextKey = "user_id"
+	UserRoleKey contextKey = "user_role"
+	LoggerKey   contextKey = "logger"
 )
 
 type ContextEnhancer struct {
@@ -39,21 +42,24 @@ func (ce *ContextEnhancer) EnhanceContext() echo.MiddlewareFunc {
 				Logger()
 
 			// Add trace context if available
-			if txn := newrelic.FromContext(c.Request().Context()); txn != nil {
-				contextLogger = logger.WithTraceContext(contextLogger, txn)
+			txn := newrelic.FromContext(c.Request().Context())
+			if txn != nil {
+				contextLogger = logging.WithTraceContext(contextLogger, txn)
 			}
 
 			// Extract user information from JWT token or session
-			if userID := ce.extractUserID(c); userID != "" {
-				contextLogger = contextLogger.With().Str("user_id", userID).Logger()
+			userID := ce.extractUserID(c)
+			if userID != "" {
+				contextLogger = contextLogger.With().Str(string(UserIDKey), userID).Logger()
 			}
 
-			if userRole := ce.extractUserRole(c); userRole != "" {
-				contextLogger = contextLogger.With().Str("user_role", userRole).Logger()
+			userRole := ce.extractUserRole(c)
+			if userRole != "" {
+				contextLogger = contextLogger.With().Str(string(UserRoleKey), userRole).Logger()
 			}
 
 			// Store the enhanced logger in context
-			c.Set(LoggerKey, &contextLogger)
+			c.Set(string(LoggerKey), &contextLogger)
 
 			// Create a new context with the logger
 			ctx := context.WithValue(c.Request().Context(), LoggerKey, &contextLogger)
@@ -65,30 +71,27 @@ func (ce *ContextEnhancer) EnhanceContext() echo.MiddlewareFunc {
 }
 
 func (ce *ContextEnhancer) extractUserID(c echo.Context) string {
+	return GetUserID(c)
+}
+
+func GetUserID(c echo.Context) string {
 	// Check if user_id was already set by auth middleware (Clerk)
-	if userID, ok := c.Get("user_id").(string); ok && userID != "" {
+	if userID, ok := c.Get(string(UserIDKey)).(string); ok {
 		return userID
 	}
 	return ""
 }
 
 func (ce *ContextEnhancer) extractUserRole(c echo.Context) string {
-	// Check if user_role was set by auth middleware (Clerk)
-	if userRole, ok := c.Get("user_role").(string); ok && userRole != "" {
+	// Check if user_role was already set by auth middleware (Clerk)
+	if userRole, ok := c.Get(string(UserRoleKey)).(string); ok {
 		return userRole
 	}
 	return ""
 }
 
-func GetUserID(c echo.Context) string {
-	if userID, ok := c.Get(UserIDKey).(string); ok {
-		return userID
-	}
-	return ""
-}
-
 func GetLogger(c echo.Context) *zerolog.Logger {
-	if logger, ok := c.Get(LoggerKey).(*zerolog.Logger); ok {
+	if logger, ok := c.Get(string(LoggerKey)).(*zerolog.Logger); ok {
 		return logger
 	}
 	// Fallback to a basic logger if not found
