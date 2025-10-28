@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	tern "github.com/jackc/tern/v2/migrate"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
+	"github.com/mabhi256/tasker/internal/config"
 	"github.com/rs/zerolog"
 )
 

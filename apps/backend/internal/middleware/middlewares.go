@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/tasker/internal/server"
 	"github.com/newrelic/go-agent/v3/newrelic"
 )
 

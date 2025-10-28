@@ -8,14 +8,14 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/handler"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/logging"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/repository"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/router"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/service"
+	"github.com/mabhi256/tasker/internal/config"
+	"github.com/mabhi256/tasker/internal/database"
+	"github.com/mabhi256/tasker/internal/handler"
+	"github.com/mabhi256/tasker/internal/logging"
+	"github.com/mabhi256/tasker/internal/repository"
+	"github.com/mabhi256/tasker/internal/router"
+	"github.com/mabhi256/tasker/internal/server"
+	"github.com/mabhi256/tasker/internal/service"
 )
 
 const DefaultContextTimeout = 30

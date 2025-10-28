@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/tasker/internal/server"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )

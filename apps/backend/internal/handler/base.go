@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/middleware"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/validation"
+	"github.com/mabhi256/tasker/internal/middleware"
+	"github.com/mabhi256/tasker/internal/server"
+	"github.com/mabhi256/tasker/internal/validation"
 	"github.com/newrelic/go-agent/v3/integrations/nrpkgerrors"
 	"github.com/newrelic/go-agent/v3/newrelic"
 )

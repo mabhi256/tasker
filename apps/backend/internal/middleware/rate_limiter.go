@@ -1,6 +1,6 @@
 package middleware
 
-import "github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+import "github.com/mabhi256/tasker/internal/server"
 
 type RateLimitMiddleware struct {
 	server *server.Server

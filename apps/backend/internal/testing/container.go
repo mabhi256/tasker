@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
+	"github.com/mabhi256/tasker/internal/config"
+	"github.com/mabhi256/tasker/internal/database"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"

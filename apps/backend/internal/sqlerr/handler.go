@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/errs"
+	"github.com/mabhi256/tasker/internal/errs"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )

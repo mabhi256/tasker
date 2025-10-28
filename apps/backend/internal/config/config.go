@@ -18,6 +18,8 @@ type Config struct {
 	Redis         RedisConfig          `koanf:"redis" validate:"required"`
 	Auth          AuthConfig           `koanf:"auth" validate:"required"`
 	Email         EmailConfig          `koanf:"email" validate:"required"`
+	AWS           AWSConfig            `koanf:"aws" validate:"required"`
+	Cron          *CronConfig          `koanf:"cron"`
 	Observability *ObservabilityConfig `koanf:"observability"`
 }
 
@@ -59,12 +61,36 @@ type EmailConfig struct {
 	ResendAPIKey string `koanf:"resend_api_key" validate:"required"`
 }
 
+type AWSConfig struct {
+	Region          string `koanf:"region" validate:"required"`
+	AccessKeyID     string `koanf:"access_key_id" validate:"required"`
+	SecretAccessKey string `koanf:"secret_access_key" validate:"required"`
+	UploadBucket    string `koanf:"upload_bucket" validate:"required"`
+	EndpointURL     string `koanf:"endpoint_url"`
+}
+
+type CronConfig struct {
+	ArchiveDaysThreshold        int `koanf:"archive_days_threshold"`
+	BatchSize                   int `koanf:"batch_size"`
+	ReminderHours               int `koanf:"reminder_hours"`
+	MaxTodosPerUserNotification int `koanf:"max_todos_per_user_notification"`
+}
+
+func DefaultCronConfig() *CronConfig {
+	return &CronConfig{
+		ArchiveDaysThreshold:        30,
+		BatchSize:                   100,
+		ReminderHours:               24,
+		MaxTodosPerUserNotification: 10,
+	}
+}
+
 func LoadConfig() (*Config, error) {
 	errLogger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
 
 	k := koanf.New(".")
-	provider := env.Provider("BOILERPLATE_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "BOILERPLATE_"))
+	provider := env.Provider("TASKER_", ".", func(s string) string {
+		return strings.ToLower(strings.TrimPrefix(s, "TASKER_"))
 	})
 
 	err := k.Load(provider, nil)
@@ -97,11 +123,16 @@ func LoadConfig() (*Config, error) {
 	if mainConfig.Observability == nil {
 		mainConfig.Observability = DefaultObservabilityConfig()
 	}
-	mainConfig.Observability.ServiceName = "boilerplate"
+	mainConfig.Observability.ServiceName = "tasker"
 	mainConfig.Observability.Environment = mainConfig.Primary.Env
 
 	if err := mainConfig.Observability.Validate(); err != nil {
 		errLogger.Fatal().Err(err).Msg("invalid observability config")
+	}
+
+	// Set default cron config if not provided
+	if mainConfig.Cron == nil {
+		mainConfig.Cron = DefaultCronConfig()
 	}
 
 	return mainConfig, nil

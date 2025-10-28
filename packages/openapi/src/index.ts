@@ -38,12 +38,12 @@ export const OpenAPI = Object.assign(
       openapi: "3.0.2",
       info: {
         version: "1.0.0",
-        title: "Boilerplate REST API - Documentation",
-        description: "Boilerplate REST API - Documentation",
+        title: "Tasker REST API - Documentation",
+        description: "Tasker REST API - Documentation",
       },
       servers: [
         {
-          url: "http://localhost:8080",
+          url: "http://localhost:8080/api",
           description: "Local Server",
         },
       ],

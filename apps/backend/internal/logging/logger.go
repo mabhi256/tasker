@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/tracelog"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
+	"github.com/mabhi256/tasker/internal/config"
 	"github.com/newrelic/go-agent/v3/integrations/logcontext-v2/zerologWriter"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/rs/zerolog"

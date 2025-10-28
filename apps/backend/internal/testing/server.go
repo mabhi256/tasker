@@ -3,9 +3,9 @@ package testing
 import (
 	"time"
 
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/tasker/internal/config"
+	"github.com/mabhi256/tasker/internal/database"
+	"github.com/mabhi256/tasker/internal/server"
 	"github.com/rs/zerolog"
 )
 

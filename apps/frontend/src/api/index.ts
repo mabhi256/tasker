@@ -1,6 +1,6 @@
 import { API_URL } from "@/config/env";
-import { apiContract } from "@boilerplate/openapi/contracts";
 import { useAuth } from "@clerk/clerk-react";
+import { apiContract } from "@tasker/openapi/contracts";
 import { initClient } from "@ts-rest/core";
 import axios, {
   type Method,

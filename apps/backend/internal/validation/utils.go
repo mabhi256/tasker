@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/errs"
+	"github.com/mabhi256/tasker/internal/errs"
 )
 
 type Validatable interface {

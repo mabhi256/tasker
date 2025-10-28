@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/logging"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/tasker/internal/logging"
+	"github.com/mabhi256/tasker/internal/server"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/rs/zerolog"
 )

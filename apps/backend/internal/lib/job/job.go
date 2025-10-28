@@ -1,15 +1,24 @@
 package job
 
 import (
+	"context"
+
 	"github.com/hibiken/asynq"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
+	"github.com/mabhi256/tasker/internal/config"
+	"github.com/mabhi256/tasker/internal/lib/email"
 	"github.com/rs/zerolog"
 )
 
 type JobService struct {
-	Client *asynq.Client
-	server *asynq.Server
-	logger *zerolog.Logger
+	Client      *asynq.Client
+	server      *asynq.Server
+	logger      *zerolog.Logger
+	authService AuthServiceInterface
+	emailClient *email.Client
+}
+
+type AuthServiceInterface interface {
+	GetUserEmail(ctx context.Context, userID string) (string, error)
 }
 
 func NewJobService(cfg *config.Config, logger *zerolog.Logger) *JobService {
@@ -38,10 +47,16 @@ func NewJobService(cfg *config.Config, logger *zerolog.Logger) *JobService {
 	}
 }
 
+func (j *JobService) SetAuthService(authService AuthServiceInterface) {
+	j.authService = authService
+}
+
 func (j *JobService) Start() error {
 	// Register task handlers
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TaskWelcome, j.handleWelcomeEmailTask)
+	mux.HandleFunc(TaskReminderEmail, j.handleReminderEmailTask)
+	mux.HandleFunc(TaskWeeklyReportEmail, j.handleWeeklyReportEmailTask)
 
 	j.logger.Info().Msg("Starting background job server")
 	err := j.server.Start(mux)

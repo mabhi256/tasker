@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/config"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/database"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/lib/job"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/logging"
+	"github.com/mabhi256/tasker/internal/config"
+	"github.com/mabhi256/tasker/internal/database"
+	"github.com/mabhi256/tasker/internal/lib/job"
+	"github.com/mabhi256/tasker/internal/logging"
 	"github.com/newrelic/go-agent/v3/integrations/nrredis-v9"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -103,6 +103,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.DB.Close()
 	if s.Job != nil {
 		s.Job.Stop()
+	}
+
+	if s.Redis != nil {
+		s.Redis.Close()
 	}
 
 	return nil

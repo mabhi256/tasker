@@ -37,7 +37,7 @@ type HealthCheckConfig struct {
 
 func DefaultObservabilityConfig() *ObservabilityConfig {
 	return &ObservabilityConfig{
-		ServiceName: "boilerplate",
+		ServiceName: "tasker",
 		Environment: "dev",
 		Logging: LoggingConfig{
 			Level:              "info",

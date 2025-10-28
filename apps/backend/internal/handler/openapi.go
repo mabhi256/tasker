@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/tasker/internal/server"
 )
 
 type OpenAPIHandler struct {

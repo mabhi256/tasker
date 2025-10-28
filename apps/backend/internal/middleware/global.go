@@ -6,9 +6,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/errs"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/sqlerr"
+	"github.com/mabhi256/tasker/internal/errs"
+	"github.com/mabhi256/tasker/internal/server"
+	"github.com/mabhi256/tasker/internal/sqlerr"
 	"github.com/rs/zerolog"
 )
 

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/middleware"
-	"github.com/mabhi256/go-boilerplate-echo-pgx-newrelic/internal/server"
+	"github.com/mabhi256/tasker/internal/middleware"
+	"github.com/mabhi256/tasker/internal/server"
 )
 
 type HealthHandler struct {

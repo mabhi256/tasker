@@ -39,7 +39,11 @@ func NewBadRequestError(message string, override bool, code *string, errors []Fi
 	return newError(http.StatusBadRequest, message, override, code, errors, action)
 }
 
-// Conflicts with existing state
+// The request payload is valid, but conflicts with the resource's current state in database
+// - State transitions that aren't allowed
+// - Resource is locked/archived/deleted
+// - Concurrent modification conflicts
+// - Business rule violations about the resource's current state
 func NewConflictError(message string, override bool, code *string, errors []FieldError, action *Action) *HTTPError {
 	return newError(http.StatusConflict, message, override, code, errors, action)
 }
@@ -54,6 +58,7 @@ func NewValidationError(err error) *HTTPError {
 }
 
 // Valid JSON, invalid data (validation/constraint failures) - {"name": "", "age": -5, "email": "notanemail"}
+// The payload itself violates Business rules (invariants) irrespective of current state
 func NewUnprocessableError(message string, override bool, code *string, errors []FieldError, action *Action) *HTTPError {
 	return newError(http.StatusUnprocessableEntity, message, false, code, errors, action)
 }
