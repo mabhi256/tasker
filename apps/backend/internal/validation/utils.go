@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -27,9 +28,20 @@ func (c CustomValidationErrors) Error() string {
 }
 
 func BindAndValidate(c echo.Context, payload Validatable) error {
-	if err := c.Bind(payload); err != nil {
-		message := strings.Split(strings.Split(err.Error(), ",")[1], "message=")[1]
-		return errs.NewBadRequestError(message, false, nil, nil, nil)
+	decoder := json.NewDecoder(c.Request().Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(payload); err != nil {
+		// Handle different error types
+		if jsonErr, ok := err.(*json.UnmarshalTypeError); ok {
+			message := fmt.Sprintf("field '%s' expects %s but got %s",
+				jsonErr.Field,
+				jsonErr.Type.String(),
+				jsonErr.Value)
+			return errs.NewBadRequestError(message, false, nil, nil, nil)
+		}
+		// This catches unknown field errors and other JSON errors
+		return errs.NewBadRequestError(err.Error(), false, nil, nil, nil)
 	}
 
 	if msg, fieldErrors := validateStruct(payload); fieldErrors != nil {
