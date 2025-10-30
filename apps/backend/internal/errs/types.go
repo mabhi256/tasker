@@ -3,8 +3,10 @@ package errs
 import "strings"
 
 type FieldError struct {
-	Field string `json:"field"`
-	Error string `json:"error"`
+	Field *string `json:"field,omitempty"` // for JSON body fields
+	Query *string `json:"query,omitempty"` // for query params
+	Param *string `json:"param,omitempty"` // for path params
+	Error string  `json:"error"`
 }
 
 type ActionType string

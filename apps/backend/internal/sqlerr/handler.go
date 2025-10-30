@@ -176,9 +176,10 @@ func HandleError(err error) error {
 			return errs.NewConflictError(userMessage, true, &errorCode, nil, nil)
 
 		case NotNullViolation:
+			field := strings.ToLower(sqlErr.ColumnName)
 			fieldErrors := []errs.FieldError{
 				{
-					Field: strings.ToLower(sqlErr.ColumnName),
+					Field: &field,
 					Error: "is required",
 				},
 			}

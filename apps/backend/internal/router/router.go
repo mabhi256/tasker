@@ -10,6 +10,7 @@ import (
 	v1 "github.com/mabhi256/tasker/internal/router/v1"
 	"github.com/mabhi256/tasker/internal/server"
 	"github.com/mabhi256/tasker/internal/service"
+	"github.com/mabhi256/tasker/internal/validation"
 	"golang.org/x/time/rate"
 )
 
@@ -17,6 +18,7 @@ func NewRouter(s *server.Server, h *handler.Handlers, services *service.Services
 	middlewares := middleware.NewMiddlewares(s)
 
 	router := echo.New()
+	router.Binder = &validation.CustomBinder{}
 
 	router.HTTPErrorHandler = middlewares.Global.GlobalErrorHandler
 

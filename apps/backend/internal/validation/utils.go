@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -16,110 +15,83 @@ type Validatable interface {
 	Validate() error
 }
 
-type CustomValidationError struct {
-	Field   string
-	Message string
-}
+var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
-type CustomValidationErrors []CustomValidationError
-
-func (c CustomValidationErrors) Error() string {
-	return "Validation failed"
+func IsValidUUID(uuid string) bool {
+	return uuidRegex.MatchString(uuid)
 }
 
 func BindAndValidate(c echo.Context, payload Validatable) error {
-	decoder := json.NewDecoder(c.Request().Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(payload); err != nil {
-		// Handle different error types
-		if jsonErr, ok := err.(*json.UnmarshalTypeError); ok {
-			message := fmt.Sprintf("field '%s' expects %s but got %s",
-				jsonErr.Field,
-				jsonErr.Type.String(),
-				jsonErr.Value)
-			return errs.NewBadRequestError(message, false, nil, nil, nil)
-		}
-		// This catches unknown field errors and other JSON errors
-		return errs.NewBadRequestError(err.Error(), false, nil, nil, nil)
+	if err := c.Bind(payload); err != nil {
+		return err
 	}
 
-	if msg, fieldErrors := validateStruct(payload); fieldErrors != nil {
-		return errs.NewUnprocessableError(msg, true, nil, fieldErrors, nil)
+	// Now validate the successfully bound values
+	var validationErrors []errs.FieldError
+	if err := payload.Validate(); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			for _, verr := range validationErrs {
+				source := getFieldSource(payload, verr.Field())
+				msg := formatValidationMessage(verr)
+				validationErrors = append(validationErrors, createFieldError(verr.Field(), msg, source))
+			}
+		}
+	}
+
+	if len(validationErrors) > 0 {
+		return errs.NewUnprocessableError("Validation failed", true, nil, validationErrors, nil)
 	}
 
 	return nil
 }
 
-func validateStruct(v Validatable) (string, []errs.FieldError) {
-	if err := v.Validate(); err != nil {
-		return extractValidationErrors(err)
-	}
-	return "", nil
-}
+func getFieldSource(payload any, fieldName string) string {
+	val := reflect.ValueOf(payload).Elem()
+	typ := val.Type()
 
-func extractValidationErrors(err error) (string, []errs.FieldError) {
-	var fieldErrors []errs.FieldError
-	validationErrors, ok := err.(validator.ValidationErrors)
-	if ok {
-		for _, err := range err.(CustomValidationErrors) {
-			fieldErrors = append(fieldErrors, errs.FieldError{
-				Field: err.Field,
-				Error: err.Message,
-			})
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.Name == fieldName {
+			if field.Tag.Get("param") != "" {
+				return "param"
+			}
+			if field.Tag.Get("query") != "" {
+				return "query"
+			}
+			return "json"
 		}
 	}
-
-	for _, err := range validationErrors {
-		field := strings.ToLower(err.Field())
-		var msg string
-
-		switch err.Tag() {
-		case "required":
-			msg = "is required"
-		case "min":
-			if err.Type().Kind() == reflect.String {
-				msg = fmt.Sprintf("must be at least %s characters", err.Param())
-			} else {
-				msg = fmt.Sprintf("must be at least %s", err.Param())
-			}
-		case "max":
-			if err.Type().Kind() == reflect.String {
-				msg = fmt.Sprintf("must not exceed %s characters", err.Param())
-			} else {
-				msg = fmt.Sprintf("must not exceed %s", err.Param())
-			}
-		case "oneof":
-			msg = fmt.Sprintf("must be one of: %s", err.Param())
-		case "email":
-			msg = "must be a valid email address"
-		case "e164":
-			msg = "must be a valid phone number with country code"
-		case "uuid":
-			msg = "must be a valid UUID"
-		case "uuidList":
-			msg = "must be a comma-separated list of valid UUIDs"
-		case "dive":
-			msg = "some items are invalid"
-		default:
-			if err.Param() != "" {
-				msg = fmt.Sprintf("%s: %s:%s", field, err.Tag(), err.Param())
-			} else {
-				msg = fmt.Sprintf("%s: %s", field, err.Tag())
-			}
-		}
-
-		fieldErrors = append(fieldErrors, errs.FieldError{
-			Field: strings.ToLower(err.Field()),
-			Error: msg,
-		})
-	}
-
-	return "Validation failed", fieldErrors
+	return "json"
 }
 
-var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-
-func IsValidUUID(uuid string) bool {
-	return uuidRegex.MatchString(uuid)
+func formatValidationMessage(err validator.FieldError) string {
+	switch err.Tag() {
+	case "required":
+		return "is required"
+	case "min":
+		if err.Type().Kind() == reflect.String {
+			return fmt.Sprintf("must be at least %s characters", err.Param())
+		}
+		return fmt.Sprintf("must be at least %s", err.Param())
+	case "max":
+		if err.Type().Kind() == reflect.String {
+			return fmt.Sprintf("must not exceed %s characters", err.Param())
+		}
+		return fmt.Sprintf("must not exceed %s", err.Param())
+	case "oneof":
+		return fmt.Sprintf("must be one of: %s", err.Param())
+	case "email":
+		return "must be a valid email address"
+	case "e164":
+		return "must be a valid phone number with country code"
+	case "uuid":
+		return "must be a valid UUID"
+	case "uuidList":
+		return "must be a comma-separated list of valid UUIDs"
+	default:
+		if err.Param() != "" {
+			return fmt.Sprintf("%s: %s:%s", strings.ToLower(err.Field()), err.Tag(), err.Param())
+		}
+		return fmt.Sprintf("%s: %s", strings.ToLower(err.Field()), err.Tag())
+	}
 }
