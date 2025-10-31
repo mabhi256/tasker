@@ -11,7 +11,7 @@ func newSimpleError(status int, message string, override bool) *HTTPError {
 	}
 }
 
-func newError(status int, message string, override bool, code *string, errors []FieldError, action *Action) *HTTPError {
+func newError(status int, message string, override bool, code *string, errors []BindError, action *Action) *HTTPError {
 	if code == nil {
 		formatted := MakeUpperSnakeCase(http.StatusText(status))
 		code = &formatted
@@ -35,7 +35,7 @@ func NewForbiddenError(message string, override bool) *HTTPError {
 }
 
 // Malformed request - bad JSON, wrong types - {"name": "John", "age": }
-func NewBadRequestError(message string, override bool, code *string, errors []FieldError, action *Action) *HTTPError {
+func NewBadRequestError(message string, override bool, code *string, errors []BindError, action *Action) *HTTPError {
 	return newError(http.StatusBadRequest, message, override, code, errors, action)
 }
 
@@ -44,7 +44,7 @@ func NewBadRequestError(message string, override bool, code *string, errors []Fi
 // - Resource is locked/archived/deleted
 // - Concurrent modification conflicts
 // - Business rule violations about the resource's current state
-func NewConflictError(message string, override bool, code *string, errors []FieldError, action *Action) *HTTPError {
+func NewConflictError(message string, override bool, code *string, errors []BindError, action *Action) *HTTPError {
 	return newError(http.StatusConflict, message, override, code, errors, action)
 }
 
@@ -59,7 +59,7 @@ func NewValidationError(err error) *HTTPError {
 
 // Valid JSON, invalid data (validation/constraint failures) - {"name": "", "age": -5, "email": "notanemail"}
 // The payload itself violates Business rules (invariants) irrespective of current state
-func NewUnprocessableError(message string, override bool, code *string, errors []FieldError, action *Action) *HTTPError {
+func NewUnprocessableError(message string, override bool, code *string, errors []BindError, action *Action) *HTTPError {
 	return newError(http.StatusUnprocessableEntity, message, false, code, errors, action)
 }
 

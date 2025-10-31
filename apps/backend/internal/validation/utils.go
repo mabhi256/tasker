@@ -22,24 +22,61 @@ func IsValidUUID(uuid string) bool {
 }
 
 func BindAndValidate(c echo.Context, payload Validatable) error {
+	var allErrors []errs.BindError
+
+	// Uses CustomBinder as defined in the router
 	if err := c.Bind(payload); err != nil {
-		return err
+		// Only HTTP errors (400) should be returned immediately
+		if httpErr, ok := err.(*echo.HTTPError); ok {
+			return httpErr
+		}
 	}
 
-	// Now validate the successfully bound values
-	var validationErrors []errs.FieldError
-	if err := payload.Validate(); err != nil {
-		if validationErrs, ok := err.(validator.ValidationErrors); ok {
-			for _, verr := range validationErrs {
-				source := getFieldSource(payload, verr.Field())
-				msg := formatValidationMessage(verr)
-				validationErrors = append(validationErrors, createFieldError(verr.Field(), msg, source))
+	// Retrieve any binding errors from context
+	fieldsWithBindingErrors := make(map[string]bool)
+	if bindingErrs, ok := c.Get(bindingErrorsKey).([]errs.BindError); ok {
+		allErrors = append(allErrors, bindingErrs...)
+
+		// Track which fields have binding errors
+		for _, bindErr := range bindingErrs {
+			if bindErr.Param != nil {
+				fieldsWithBindingErrors[*bindErr.Param] = true
+			}
+			if bindErr.Query != nil {
+				fieldsWithBindingErrors[*bindErr.Query] = true
+			}
+			if bindErr.Field != nil {
+				fieldsWithBindingErrors[*bindErr.Field] = true
+			}
+			if bindErr.Form != nil {
+				fieldsWithBindingErrors[*bindErr.Form] = true
+			}
+			if bindErr.Header != nil {
+				fieldsWithBindingErrors[*bindErr.Header] = true
 			}
 		}
 	}
 
-	if len(validationErrors) > 0 {
-		return errs.NewUnprocessableError("Validation failed", true, nil, validationErrors, nil)
+	// Now validate the successfully bound values
+	if err := payload.Validate(); err != nil {
+		if valErrors, ok := err.(validator.ValidationErrors); ok {
+			for _, valErr := range valErrors {
+				fieldName := strings.ToLower(valErr.Field())
+
+				// Skip validation error if this field already has a binding error
+				if fieldsWithBindingErrors[fieldName] {
+					continue
+				}
+
+				source := getFieldSource(payload, valErr.Field())
+				msg := formatValidationMessage(valErr)
+				allErrors = append(allErrors, createFieldError(valErr.Field(), msg, source))
+			}
+		}
+	}
+
+	if len(allErrors) > 0 {
+		return errs.NewUnprocessableError("Validation failed", true, nil, allErrors, nil)
 	}
 
 	return nil
@@ -52,13 +89,18 @@ func getFieldSource(payload any, fieldName string) string {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		if field.Name == fieldName {
-			if field.Tag.Get("param") != "" {
+			switch {
+			case field.Tag.Get("param") != "":
 				return "param"
-			}
-			if field.Tag.Get("query") != "" {
+			case field.Tag.Get("query") != "":
 				return "query"
+			case field.Tag.Get("form") != "":
+				return "form"
+			case field.Tag.Get("header") != "":
+				return "header"
+			default:
+				return "json"
 			}
-			return "json"
 		}
 	}
 	return "json"

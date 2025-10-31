@@ -124,7 +124,7 @@ func (global *GlobalMiddlewares) GlobalErrorHandler(err error, c echo.Context) {
 	var status int
 	var code string
 	var message string
-	var fieldErrors []errs.FieldError
+	var fieldErrors []errs.BindError
 	var action *errs.Action
 
 	switch {

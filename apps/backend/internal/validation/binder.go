@@ -12,74 +12,84 @@ import (
 	"github.com/mabhi256/tasker/internal/errs"
 )
 
-// CustomBinder collects all binding errors instead of short-circuiting
+const bindingErrorsKey = "binding_errors"
+
 type CustomBinder struct {
 	echo.DefaultBinder
 }
 
-func (cb *CustomBinder) Bind(i interface{}, c echo.Context) error {
-	var allErrors []errs.FieldError
+func (cb *CustomBinder) Bind(i any, c echo.Context) error {
+	var allErrors []errs.BindError
 
-	// 1. Bind path params and collect errors
-	pathErrs := cb.bindParamsWithErrors(c, i, "param")
-	allErrors = append(allErrors, pathErrs...)
+	// Bind params (path + query + form + header)
+	paramErrs := cb.BindParams(c, i)
+	allErrors = append(allErrors, paramErrs...)
 
-	// 2. Bind query params and collect errors
-	queryErrs := cb.bindParamsWithErrors(c, i, "query")
-	allErrors = append(allErrors, queryErrs...)
-
-	// 3. Bind JSON body and collect errors
-	bodyErrs, err := cb.bindJSONWithErrors(c, i)
+	// Bind JSON body
+	bodyErrs, err := cb.BindBody(c, i)
 	if err != nil {
-		return err // Fatal error (e.g., malformed JSON)
+		return err // malformed JSON
 	}
 	allErrors = append(allErrors, bodyErrs...)
 
 	if len(allErrors) > 0 {
-		return errs.NewUnprocessableError("Validation failed", true, nil, allErrors, nil)
+		c.Set(bindingErrorsKey, allErrors)
 	}
-
 	return nil
 }
 
-// bindParamsWithErrors binds params/query and continues on error
-func (cb *CustomBinder) bindParamsWithErrors(c echo.Context, i interface{}, source string) []errs.FieldError {
-	var errors []errs.FieldError
-	rawValues := getRawValues(c, source)
+// BindParams handles path, query, form and header params
+func (cb *CustomBinder) BindParams(c echo.Context, i any) []errs.BindError {
+	var errors []errs.BindError
 
 	val := reflect.ValueOf(i).Elem()
 	typ := val.Type()
 
-	for idx := 0; idx < typ.NumField(); idx++ {
-		field := typ.Field(idx)
-		structField := val.Field(idx)
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		fieldVal := val.Field(i)
 
-		tagValue := field.Tag.Get(source)
-		if tagValue == "" || tagValue == "-" || !structField.CanSet() {
+		if !fieldVal.CanSet() {
 			continue
 		}
 
-		tagName := strings.Split(tagValue, ",")[0]
-		rawValue, exists := rawValues[tagName]
-
-		if !exists || rawValue == "" {
-			continue
-		}
-
-		// Try to bind - if error, collect it and continue
-		if err := bindValue(structField, rawValue); err != nil {
-			errors = append(errors, createFieldError(field.Name, err.Error(), source))
-			// Continue to next field instead of returning
+		for _, source := range []string{"param", "query", "form", "header"} {
+			if rawValue := cb.getParamValue(c, field, source); rawValue != "" {
+				if err := bindValue(fieldVal, rawValue); err != nil {
+					errors = append(errors, createFieldError(field.Name, err.Error(), source))
+				}
+				break
+			}
 		}
 	}
 
 	return errors
 }
 
-// bindJSONWithErrors binds JSON and continues on type errors
-func (cb *CustomBinder) bindJSONWithErrors(c echo.Context, i interface{}) ([]errs.FieldError, error) {
-	var errors []errs.FieldError
+func (cb *CustomBinder) getParamValue(c echo.Context, field reflect.StructField, source string) string {
+	tag := field.Tag.Get(source)
+	if tag == "" || tag == "-" {
+		return ""
+	}
 
+	tagName := strings.Split(tag, ",")[0]
+
+	switch source {
+	case "param":
+		return c.Param(tagName)
+	case "query":
+		return c.QueryParam(tagName)
+	case "form":
+		return c.FormValue(tagName)
+	case "header":
+		return c.Request().Header.Get(tagName)
+	default:
+		return ""
+	}
+}
+
+// BindBody validates types, checks unknown fields, then unmarshals
+func (cb *CustomBinder) BindBody(c echo.Context, i any) ([]errs.BindError, error) {
 	bodyBytes, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return nil, echo.NewHTTPError(400, "failed to read request body")
@@ -94,57 +104,76 @@ func (cb *CustomBinder) bindJSONWithErrors(c echo.Context, i interface{}) ([]err
 		return nil, echo.NewHTTPError(400, "invalid JSON: "+err.Error())
 	}
 
-	// Pre-validate structure (unknown fields, type mismatches)
-	val := reflect.ValueOf(i).Elem()
-	typ := val.Type()
+	// Validate structure
+	errors := cb.validateJSONStructure(i, rawMap)
 
-	validFields := make(map[string]reflect.Type)
-	for idx := 0; idx < typ.NumField(); idx++ {
-		field := typ.Field(idx)
-		jsonTag := field.Tag.Get("json")
+	// Still unmarshal what we can (ignoring errors since we already validated)
+	json.Unmarshal(bodyBytes, i)
 
-		if jsonTag == "" || jsonTag == "-" {
-			continue
-		}
-		if field.Tag.Get("param") != "" || field.Tag.Get("query") != "" {
-			continue
-		}
+	return errors, nil
+}
 
-		fieldName := strings.Split(jsonTag, ",")[0]
-		validFields[fieldName] = field.Type
-	}
+func (cb *CustomBinder) validateJSONStructure(i any, rawMap map[string]any) []errs.BindError {
+	var errors []errs.BindError
 
-	// Check unknown fields and type mismatches
+	// Build expected fields map
+	validFields := cb.getJSONFields(i)
+
+	// Check each field in the incoming JSON
 	for fieldName, rawValue := range rawMap {
-		expectedType, isValid := validFields[fieldName]
+		expectedType, exists := validFields[fieldName]
 
-		if !isValid {
-			errors = append(errors, errs.FieldError{
+		if !exists {
+			errors = append(errors, errs.BindError{
 				Field: &fieldName,
 				Error: "unknown field",
 			})
 			continue
 		}
 
-		if expectedType.Kind() == reflect.Ptr {
-			expectedType = expectedType.Elem()
-		}
-
+		// Check type compatibility
 		if !isTypeCompatible(expectedType, rawValue) {
 			actualType := getJSONType(rawValue)
 			expectedStr := getTypeString(expectedType)
-			errors = append(errors, errs.FieldError{
+			errors = append(errors, errs.BindError{
 				Field: &fieldName,
 				Error: fmt.Sprintf("expected %s but got %s", expectedStr, actualType),
 			})
 		}
 	}
 
-	// Still attempt to bind what we can
-	// json.Unmarshal will skip fields with type errors
-	json.Unmarshal(bodyBytes, i)
+	return errors
+}
 
-	return errors, nil
+func (cb *CustomBinder) getJSONFields(i any) map[string]reflect.Type {
+	fields := make(map[string]reflect.Type)
+	typ := reflect.TypeOf(i).Elem()
+
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+
+		// Skip non-JSON fields
+		if field.Tag.Get("param") != "" ||
+			field.Tag.Get("query") != "" ||
+			field.Tag.Get("form") != "" ||
+			field.Tag.Get("header") != "" {
+			continue
+		}
+
+		jsonTag := field.Tag.Get("json")
+		if jsonTag == "" || jsonTag == "-" {
+			continue
+		}
+
+		fieldName := strings.Split(jsonTag, ",")[0]
+		fieldType := field.Type
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+		fields[fieldName] = fieldType
+	}
+
+	return fields
 }
 
 // bindValue converts and binds a string value to the target struct field
@@ -227,36 +256,19 @@ func bindValue(structField reflect.Value, rawValue string) error {
 	return fmt.Errorf("unsupported type for binding")
 }
 
-func getRawValues(c echo.Context, source string) map[string]string {
-	values := make(map[string]string)
-
-	switch source {
-	case "param":
-		names := c.ParamNames()
-		paramValues := c.ParamValues()
-		for idx, name := range names {
-			values[name] = paramValues[idx]
-		}
-	case "query":
-		for key, vals := range c.QueryParams() {
-			if len(vals) > 0 {
-				values[key] = vals[0]
-			}
-		}
-	}
-
-	return values
-}
-
-func createFieldError(fieldName, message, source string) errs.FieldError {
+func createFieldError(fieldName, message, source string) errs.BindError {
 	fieldName = strings.ToLower(fieldName)
-	fieldError := errs.FieldError{Error: message}
+	fieldError := errs.BindError{Error: message}
 
 	switch source {
 	case "param":
 		fieldError.Param = &fieldName
 	case "query":
 		fieldError.Query = &fieldName
+	case "form":
+		fieldError.Form = &fieldName
+	case "header":
+		fieldError.Header = &fieldName
 	case "json":
 		fieldError.Field = &fieldName
 	}

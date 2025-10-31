@@ -2,11 +2,13 @@ package errs
 
 import "strings"
 
-type FieldError struct {
-	Field *string `json:"field,omitempty"` // for JSON body fields
-	Query *string `json:"query,omitempty"` // for query params
-	Param *string `json:"param,omitempty"` // for path params
-	Error string  `json:"error"`
+type BindError struct {
+	Field  *string `json:"field,omitempty"`  // for JSON body fields
+	Query  *string `json:"query,omitempty"`  // for query params
+	Param  *string `json:"param,omitempty"`  // for path params
+	Form   *string `json:"form,omitempty"`   // for form data
+	Header *string `json:"header,omitempty"` // for headers
+	Error  string  `json:"error"`
 }
 
 type ActionType string
@@ -22,12 +24,12 @@ type Action struct {
 }
 
 type HTTPError struct {
-	Code     string       `json:"code"`
-	Message  string       `json:"message"`
-	Status   int          `json:"status"`
-	Override bool         `json:"override"`
-	Errors   []FieldError `json:"errors"`
-	Action   *Action      `json:"action"` // action to be taken
+	Code     string      `json:"code"`
+	Message  string      `json:"message"`
+	Status   int         `json:"status"`
+	Override bool        `json:"override"`
+	Errors   []BindError `json:"errors"`
+	Action   *Action     `json:"action"` // action to be taken
 }
 
 func (e *HTTPError) Error() string {

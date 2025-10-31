@@ -177,7 +177,7 @@ func HandleError(err error) error {
 
 		case NotNullViolation:
 			field := strings.ToLower(sqlErr.ColumnName)
-			fieldErrors := []errs.FieldError{
+			fieldErrors := []errs.BindError{
 				{
 					Field: &field,
 					Error: "is required",
