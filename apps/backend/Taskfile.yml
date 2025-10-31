@@ -23,6 +23,11 @@ tasks:
     cmds:
     - go run ./cmd/tasker
 
+  dev:
+    desc: run the backend with hot reload (only watches .go files, not config files like .env, .json and .yaml)
+    cmds:
+    - gow run ./cmd/tasker
+
   migrations:new:
     desc: create a new database migration
     vars:
